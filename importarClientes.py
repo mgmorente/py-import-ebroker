@@ -83,7 +83,7 @@ def getRamoPacc(a,b,c):
 # Fn ver datos por pantalla
 def ver_datos_polizas(r):
     print(
-        r["cod_poliza_cia"],                                # cia poliza
+        valida_cadena(r["cod_poliza_cia"],24),              # cia poliza
         getCodCia(r["cia_poliza"]),                         # compania
         getRamoPacc(r["producto"],r["ramo"],r["descripcion_pro"]),   # producto
         valida_fecha(r["fecha_efecto"]),                    # fecha efecto    
@@ -102,7 +102,7 @@ def ver_datos_polizas(r):
         valida_fecha(r["fecha_anulacion"]),                 # fecha anulacion sis
         getMotivoAnulacion(r["estado"]),                    # motivo anulacion
         canal,                                              # canal
-        '-vacio-',                                          # iban
+        valida_cadena('-vacio-',24),                        # iban
         sucursal,                                           # sucursal
         colaborador,                                        # colaborador
         tag,                                                # tag
@@ -123,7 +123,7 @@ def getNewContrato():
 def insertar_poliza_lista(r):
     polizasPaccList.append((
         getNewContrato(),
-        r["cod_poliza_cia"],                                # cia poliza
+        valida_cadena(r["cod_poliza_cia"],24),              # cia poliza
         getCodCia(r["cia_poliza"]),                         # compania
         getRamoPacc(r["producto"],r["ramo"],r["descripcion_pro"]),   # producto
         valida_fecha(r["fecha_efecto"]),                    # fecha efecto    
@@ -229,7 +229,7 @@ with open(path_files + 'eb_clientes.txt', encoding="utf8") as f:
 clientesPaccList = []
 clientesCodNifList = []
 for r in clientesList:
-    ver_datos(r)
+    # ver_datos(r)
     insertar_cliente_lista(r)
     insertar_cliente_codnif_lista(r)
 
@@ -237,7 +237,7 @@ for r in clientesList:
 # print('\n',clientesPaccList)
 
 clientesCodNifListDict = dict(clientesCodNifList)
-quit()
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 #  POLIZAS

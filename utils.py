@@ -13,7 +13,7 @@ def valida_cadena(texto, longitud):
     if texto is None:
         return ''
     else:     
-        return texto[0:longitud]
+        return texto[0:longitud-1]
 
 def valida_entero(numero):
     if numero is None:
