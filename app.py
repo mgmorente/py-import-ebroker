@@ -464,7 +464,7 @@ created_by = 'ebroker'
 tipo_poliza = 1
 canal = 6
 path_files = 'datos'
-path_files = 'CTM/BBDD'
+# path_files = 'CTM/BBDD'
 
 # read database configuration
 params = config()
@@ -473,8 +473,7 @@ conn = psycopg2.connect(**params)
 
 # # # QUITAR # # #
 prYellow('[[ATENCIÓN]] ___¿Desea borrar tablas? (S/N)')
-yesno = input()
-if yesno.upper() == 'S':
+if input().upper() == 'S':
     borrar_datos()
     prCyan('>> Borrado completado')
 
