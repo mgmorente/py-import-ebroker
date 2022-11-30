@@ -1,7 +1,9 @@
 import json
+import os
 import psycopg2
 from config import config
 from utils import *
+import shutil
 
 # Fn borrar datos y tablas
 def borrar_datos():
@@ -16,6 +18,7 @@ def borrar_datos():
     cur.execute(f"DELETE FROM clientes WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM polizas WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM polizas_autos WHERE created_by = '{created_by}'")
+    cur.execute(f"DELETE FROM documentos WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM relacion_codigo_cliente_nif")
     conn.commit()
     cur.close()
@@ -220,7 +223,7 @@ def get_nuevo_contrato():
     return contrato
 
 # Extraer datos del cliente de la lista
-def datos_clientes_pacc(cod_cliente):
+def datos_cliente_pacc(cod_cliente):
     # Localizar nif en relacion codigocliente-nif
     rowCodNif = [d for d in clientesCodNifList if d[0] == cod_cliente]
     if rowCodNif:
@@ -419,11 +422,14 @@ def insertar_poliza_bd(r):
         if cur.fetchone()[0]:
             prRed(f'La póliza {r["cod_poliza_cia"]} ya existe')
         else:    
-            prLightPurple(f'Se graba poliza {r["cod_poliza_cia"]}')
+            # prLightPurple(f'Se graba poliza {r["cod_poliza_cia"]}')
             # Insertar en polizas
             cur.execute(sql_poliza, values_poliza(r))
             contrato = cur.fetchone()[0]
-            
+
+            if contrato:
+                polizasCodigosList.append((r["cod_poliza"], contrato))
+
             # Insertar en pol_autos
             r_pol_auto = get_datos_polizas_autos(r["cod_poliza"])
             if contrato and r_pol_auto:
@@ -433,7 +439,7 @@ def insertar_poliza_bd(r):
             cur.execute("select exists (select 1 from clientes where nif = %s)", (get_nif(r["n_cliente"]),))
             if not cur.fetchone()[0]:
                 # Capturar datos del cliente
-                values_cliente = datos_clientes_pacc(r["n_cliente"])
+                values_cliente = datos_cliente_pacc(r["n_cliente"])
                 if values_cliente:
                     # prRed(f'Se graba cliente {r["cod_poliza_cia"]}')
                     cur.execute(sql_cliente, values_cliente)
@@ -453,6 +459,83 @@ def importFile(name):
             list.append(resourceDict)
     
     return list
+
+def get_carpeta_grupo(codigo):
+    if codigo == 1: return "CLIENTES".lower() 
+    elif codigo == 6: return "ASEGURADORAS".lower() 
+    elif codigo == 0: return "GENERAL".lower() 
+    elif codigo == 3: return "POLIZAS".lower() 
+    elif codigo == 14: return "PROYECTOS".lower() 
+    elif codigo == 4: return "RECIBOS".lower() 
+    elif codigo == 5: return "SINIESTROS".lower()
+
+def get_cia_poliza(cod_poliza):
+    for d in polizasCodigosList:
+        if d[0] == cod_poliza:
+            return d[1]
+    
+    return ''
+
+def get_nif_cliente(cod_cliente):
+    for d in clientesCodNifList:
+        if d[0] == cod_cliente:
+            return d[1]
+    
+    return ''
+
+def insertar_docu_bd(r):
+    
+    # solo polizas y clientes
+    if r["grupo"] not in [1,3]: return
+
+    sql = """INSERT INTO documentos (nif,poliza,ruta,fecha_alta,descripcion,created_by) 
+            VALUES (%s,%s,%s,%s,%s,%s)"""
+    
+    fecha = valida_fecha(r["fecha"])
+    grupo = get_carpeta_grupo(r["grupo"])
+    fichero = r["fichero"]
+
+    cliente = poliza = ''
+    if r["grupo"] == 1: cliente = get_nif_cliente(r["cod_regis_tabla"])
+    elif r["grupo"] == 3: poliza = get_cia_poliza(r["cod_regis_tabla"])
+
+    if cliente == '' and poliza == '':
+        return
+
+    values = (
+        cliente,
+        poliza,
+        fichero,
+        fecha,
+        valida_cadena(r["descripcion"],50),
+        created_by,
+    )
+    
+    # Copiar fichero
+    path_origen = f'C:/REPO/Python/importar_ebroker/CTM/documentos/{grupo}/{("/").join(str(r["codigo"]))}/{fichero}'
+    path_destino = f'C:/__CTM/documentos/{fecha.replace("-","/")}'
+
+    # Verificar existencia fichero
+    if not os.path.exists(path_origen):
+        # prRed(f'El fichero origen {path_origen} no existe')
+        return None
+
+    # Crear carpetas
+    if not os.path.exists(path_destino):
+        os.makedirs(path_destino, exist_ok=True)
+
+    # Copiar fichero
+    shutil.copyfile(path_origen, path_destino + "/" + fichero) 
+
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, values)
+        conn.commit()
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+
+    return 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -520,11 +603,22 @@ prCyan('>> Importar Polizas')
 # Lectura fichero con multiples JSON
 polizasList = importFile('polizas')
 
+polizasCodigosList = []
 # Bucle polizas
-polizasPaccList = []
-for r in polizasList:
-    insertar_poliza_bd(r)
+for r in polizasList: insertar_poliza_bd(r)
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+#  DOCUMENTOS
+
+prCyan('>> Importar Docs')
+
+# Lectura fichero con multiples JSON
+docusList = importFile('docu')
+
+# Bucle docus
+for r in docusList: insertar_docu_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
