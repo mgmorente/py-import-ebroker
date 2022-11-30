@@ -421,8 +421,7 @@ def insertar_poliza_bd(r):
             contrato = cur.fetchone()[0]
 
             if contrato:
-                v = f"{r['cod_poliza']};{';'.join([str(x) for x in values_pol])}".replace('\n', '')
-                polizasCodigosList.append(v)
+                polizasCodigosList.append(f"{r['cod_poliza']};{';'.join([str(x) for x in values_pol])}".replace('\n', ''))
 
             # Insertar en pol_autos
             r_pol_auto = get_datos_polizas_autos(r["cod_poliza"])
@@ -611,8 +610,11 @@ relative_path = "exportacion"
 full_path = os.path.join(absolute_path, relative_path)
 # if not os.path.exists(full_path):
 #     os.makedirs(full_path, exist_ok=True)
-with open(f'{full_path}/polizas.txt', 'w+') as f:
-    f.write('cod_poliza;contrato;cia_poliza;...\n')
+
+columnas = '''cod_poliza;poliza;cia_poliza;compania;producto;fecha_efecto;fecha_vencimiento;situacion;nif;nif_asegurado;ase_es_asegurado;matricula;forma_pago;tipo_poliza;objeto;comentario;fecha_alta;fecha_anula;fecha_anula_sis;causa_anula;canal;iban;sucursal;colaborador;created_by\n'''
+
+with open(f'{full_path}/polizas.csv', 'w+') as f:
+    f.write(columnas)
     for items in polizasCodigosList:
         # line = f"{items[0]};{';'.join([str(x) for x in items[1]])}".replace('\n', '')
         f.write('%s\n' %items)
