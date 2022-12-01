@@ -486,12 +486,13 @@ def insertar_docu_bd(r):
     fichero = r["fichero"]
 
     # [ Copiar fichero ]
-    path_origen = f'C:/REPO/Python/importar_ebroker/CTM/documentos/{grupo}/{("/").join(str(r["codigo"]))}/{fichero}'
-    path_destino = f'C:/xampp/htdocs/gestiondocs_ptb/ctm/documentos/{fecha.replace("-","/")[:8]}'
+    path_origen = f'D:/TRABAJO/PACTREBOL/CTM/Documentos/{grupo}/{("/").join(str(r["codigo"]))}/{fichero}'
+    path_destino = f'{os.path.dirname(__file__)}/__pactrebol_documentos/{fecha.replace("-","/")[:8]}'
 
     # Verificar existencia fichero
     if not os.path.exists(path_origen):
         # prRed(f'El fichero origen {path_origen} no existe')
+        docuNoExisteList.append(path_origen)
         return None
 
     # Crear carpetas
@@ -541,7 +542,7 @@ created_by = 'ebroker'
 tipo_poliza = 1
 canal = 6
 path_files = 'datos'
-# path_files = 'CTM/BBDD'
+path_files = 'CTM/BBDD'
 
 # read database configuration
 params = config()
@@ -605,18 +606,14 @@ for r in polizasList: insertar_poliza_bd(r)
 
 # print(polizasCodigosList)
 # Exportar a fichero
-absolute_path = os.path.dirname(__file__)
-relative_path = "exportacion"
-full_path = os.path.join(absolute_path, relative_path)
-# if not os.path.exists(full_path):
-#     os.makedirs(full_path, exist_ok=True)
+path_csv = f'{os.path.dirname(__file__)}/__exportacion'
+if not os.path.exists(path_csv):
+    os.makedirs(path_csv, exist_ok=True)
 
 columnas = '''cod_poliza;poliza;cia_poliza;compania;producto;fecha_efecto;fecha_vencimiento;situacion;nif;nif_asegurado;ase_es_asegurado;matricula;forma_pago;tipo_poliza;objeto;comentario;fecha_alta;fecha_anula;fecha_anula_sis;causa_anula;canal;iban;sucursal;colaborador;created_by\n'''
-
-with open(f'{full_path}/polizas.csv', 'w+') as f:
+with open(f'{path_csv}/polizas.csv', 'w+') as f:
     f.write(columnas)
     for items in polizasCodigosList:
-        # line = f"{items[0]};{';'.join([str(x) for x in items[1]])}".replace('\n', '')
         f.write('%s\n' %items)
 f.close()
 
@@ -630,8 +627,13 @@ prCyan('>> Importar Docs')
 # Lectura fichero con multiples JSON
 docusList = importFile('docu')
 
+docuNoExisteList = []
 # Bucle docus
 for r in docusList: insertar_docu_bd(r)
+
+with open(f'{path_csv}/docu-no-existe.csv', 'w+') as f:
+    for items in docuNoExisteList: f.write('%s\n' %items)
+f.close()
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
