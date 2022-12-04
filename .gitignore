@@ -2,4 +2,5 @@
 /datos
 /__pruebas
 /__pycache__
-/exportacion
+/__exportacion
+/__pactrebol_documentos
