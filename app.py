@@ -12,6 +12,7 @@ def borrar_datos():
     cur.execute(f"DELETE FROM polizas WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM polizas_autos WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM documentos WHERE created_by = '{created_by}'")
+    cur.execute(f"DELETE FROM recibos WHERE created_by = '{created_by}'")
     conn.commit()
     cur.close()
 
@@ -214,6 +215,16 @@ def get_nuevo_contrato():
         print(error)
     return contrato
 
+def get_nuevo_recibo():
+    recibo = ''
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM incrementa_contador('RECIBO')")
+        recibo = sucursal + str(cur.fetchone()[0]).zfill(7)
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    return recibo
+
 # Extraer datos del cliente de la lista
 def datos_cliente_pacc(cod_cliente):
     # Localizar nif en relacion codigocliente-nif
@@ -252,6 +263,8 @@ def get_iban(r):
         return r["entidad_bancaria"] + r["ofi_banco_poliza"] + r["co_banco_poliza"] + r["num_cuenta_poliza"]
     
 def values_poliza(r):
+    if int(get_ramo_pacc(r["producto"])) == 0: ramos_sueltos.append(r["producto"])
+
     return (
         get_nuevo_contrato(),
         valida_cadena(r["cod_poliza_cia"],24),              # cia poliza
@@ -450,7 +463,9 @@ def importFile(name):
         for jsonObj in f:
             resourceDict = json.loads(jsonObj)
             list.append(resourceDict)
-    
+
+    # prRed('\n-------\n'+name+'\n-------')
+    # print('\n'.join((resourceDict.keys())))
     return list
 
 def get_carpeta_grupo(codigo):
@@ -464,10 +479,19 @@ def get_carpeta_grupo(codigo):
 
 def get_cia_poliza(cod_poliza):
     for d in polizasCodigosList:
-        if d[0] == cod_poliza:
-            return d[1]
+        row = d.split(";")
+        if int(row[0]) == cod_poliza:
+            return row[1]
     
     return ''
+
+def get_datos_poliza(cod_poliza):
+    for d in polizasCodigosList:
+        row = d.split(";")
+        if int(row[0]) == cod_poliza:
+            return row
+    
+    return []
 
 def get_nif_cliente(cod_cliente):
     for d in clientesCodNifList:
@@ -475,6 +499,56 @@ def get_nif_cliente(cod_cliente):
             return d[1]
     
     return ''
+
+def insertar_recibo_bd(r):
+    datos_poliza = get_datos_poliza(r["cod_poliza"])
+    # for i,v in enumerate(datos_poliza): print(i,v)
+
+    if datos_poliza == []:
+        return
+    
+    cia_recibo = r["num_recibo"] if r["num_recibo"] is not None else ''
+
+    tipo = 'C'
+    situacion = 206
+
+    sql = """INSERT INTO recibos 
+            (poliza,cia_poliza,recibo,cia_recibo,compania,producto,tipo,nif,iban,colaborador,canal,situacion,prima_tarifa,prima_neta,prima_total,
+            fecha_emision,fecha_efecto,fecha_vencimiento,sucursal,created_by) 
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+
+    values = (
+        datos_poliza[1],                                        # contrato
+        r["cod_poliza_cia"],                                    # cia_poliza
+        get_nuevo_recibo(),                                     # recibo
+        valida_cadena(cia_recibo, 20),                          # cia_recibo
+        datos_poliza[3],            # compania
+        datos_poliza[4],            # producto
+        tipo,
+        datos_poliza[8],            # nif
+        datos_poliza[21],           # iban 
+        colaborador,
+        canal,
+        situacion,
+        r["prima_neta"],
+        r["prima_neta"],
+        r["prima_total"],
+        valida_fecha(r["fecha_emision"]),
+        valida_fecha(r["fecha_efecto"]),
+        valida_fecha(r["fecha_anulacion"]),
+        sucursal,
+        created_by,
+    )
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, values)
+        conn.commit()
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+
+    return 
 
 def insertar_docu_bd(r):
     
@@ -499,7 +573,7 @@ def insertar_docu_bd(r):
         os.makedirs(path_destino, exist_ok=True)
 
     # Copiar fichero
-    shutil.copyfile(path_origen, path_destino + "/" + fichero) 
+    # shutil.copyfile(path_origen, path_destino + "/" + fichero) 
 
     # [ Insertar registro ]
     cliente = poliza = ''
@@ -541,7 +615,8 @@ created_by = 'ebroker'
 tipo_poliza = 1
 canal = 6
 path_files = 'datos'
-# path_files = 'CTM/BBDD'
+path_files = 'CTM/BBDD'
+ramos_sueltos = []
 
 # read database configuration
 params = config()
@@ -563,7 +638,6 @@ prCyan('>> Importar tablas')
 polizasAutosList = importFile('polizas_autos')
 clasesAutosList = importFile('clases_autos')
 polizasGarantiasList = importFile('pol_garantias')
-# print('\n'.join(list(resourceDict.keys())))
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -603,7 +677,6 @@ polizasCodigosList = []
 # Bucle polizas
 for r in polizasList: insertar_poliza_bd(r)
 
-# print(polizasCodigosList)
 # Exportar a fichero
 absolute_path = os.path.dirname(__file__)
 relative_path = "exportacion"
@@ -619,6 +692,17 @@ with open(f'{full_path}/polizas.csv', 'w+') as f:
         # line = f"{items[0]};{';'.join([str(x) for x in items[1]])}".replace('\n', '')
         f.write('%s\n' %items)
 f.close()
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+#  RECIBOS
+
+prCyan('>> Importar Recibos')
+
+recibosList = importFile('recibos')
+
+for r in recibosList: insertar_recibo_bd(r)
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -640,6 +724,8 @@ for r in docusList: insertar_docu_bd(r)
 # Cerrar conexion
 if conn is not None:
     conn.close()
+
+if list(dict.fromkeys(ramos_sueltos)) != []: print(list(dict.fromkeys(ramos_sueltos)))
 
 # Mensaje fin proceso
 prGreen('Success!')
