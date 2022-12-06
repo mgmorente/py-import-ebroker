@@ -3,6 +3,7 @@ import psycopg2
 from config import config
 from utils import *
 import shutil
+from schwifty import IBAN
 
 # Fn borrar datos y tablas
 def borrar_datos():
@@ -66,7 +67,10 @@ def get_iban(r):
     if r["entidad_bancaria"] is None or r["num_cuenta_poliza"] is None:
         return ''
     else:
-        return r["entidad_bancaria"] + r["ofi_banco_poliza"] + r["co_banco_poliza"] + r["num_cuenta_poliza"]
+        banco = r["entidad_bancaria"] + r["ofi_banco_poliza"]
+        cuenta = r["co_banco_poliza"] + r["num_cuenta_poliza"]
+        iban = IBAN.generate('ES', bank_code=banco, account_code=cuenta)
+        return iban
 
 def values_poliza(contrato, r):
     
@@ -336,7 +340,7 @@ params = config()
 conn = psycopg2.connect(**params)
 
 # read setting
-setting = config('database.ini', 'setting')
+setting = config(section='setting')
 path_files = setting["path_files"]
 
 # borrar datos en ambiente develop
