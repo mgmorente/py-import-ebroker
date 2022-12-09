@@ -1,3 +1,4 @@
+import csv
 import os
 import psycopg2
 from config import config
@@ -5,7 +6,7 @@ from utils import *
 import shutil
 from schwifty import IBAN
 
-# Fn borrar datos y tablas
+
 def borrar_datos():
     cur = conn.cursor()
     cur.execute(f"DELETE FROM clientes WHERE created_by = '{created_by}'")
@@ -27,7 +28,6 @@ def get_nif(cod_cliente):
     
     return str(cod_cliente).zfill(9)
 
-# Fn capturar contador y añadir ceros a la izquierda
 def get_nuevo_contrato():
     contrato = ''
     try:
@@ -52,19 +52,19 @@ def get_comentario(r):
 
     comentario = '\n[PRO] ' + r["descripcion_pro"]
 
-    for i, t in enumerate(polizasGarantiasList):
-        if t["cod_poliza"] == r["cod_poliza"] and t["marca"] == 'S':
-            # print(polizasGarantiasList[i])
-            comentario += '\n[GAR] ' + t["descripcion"]
-            if t["capital"]:
-                comentario += f' (Capital: {t["capital"]})'
+    for garantia in polizasGarantiasList:
+        if garantia["cod_poliza"] == r["cod_poliza"] and garantia["marca"] == 'S':
+            # print(polizasGarantiasLisgarantia[i])
+            comentario += '\n[GAR] ' + garantia["descripcion"]
+            if garantia["capital"]:
+                comentario += f' (Capital: {garantia["capital"]})'
 
     comentario += '\n[COD] ' + str(r["cod_poliza"])
 
     return comentario
 
 def get_iban(r):
-    if r["entidad_bancaria"] is None or r["num_cuenta_poliza"] is None:
+    if r["entidad_bancaria"] != '' or r["entidad_bancaria"] is None:
         return ''
     else:
         banco = r["entidad_bancaria"] + r["ofi_banco_poliza"]
@@ -77,8 +77,8 @@ def values_poliza(contrato, r):
     return (
         contrato,
         valida_cadena(r["cod_poliza_cia"], 24),              # cia poliza
-        getCodCia(r["cia_poliza"]),                         # compania
-        get_ramo_pacc(r["producto"]),                       # producto
+        get_cia_pacc(r),                                    # compania
+        get_ramo_pacc(r),                                   # producto
         valida_fecha(r["fecha_efecto"]),                    # fecha efecto
         valida_fecha(r["pro_vto_rec"]),                     # fecha vencimiento
         getSituacion(r["estado"]),                          # situacion
@@ -103,11 +103,13 @@ def values_poliza(contrato, r):
     )
 
 def get_datos_polizas_autos(cod_poliza):
-    list = []
+    if cod_poliza is None or cod_poliza == '': return []
+    
     for r_pol_auto in polizasAutosList:
-        if r_pol_auto["cod_poliza"] == r["cod_poliza"]:
-            # print(r_pol_auto["clase"],r_pol_auto["uso"],r_pol_auto["matricula"])
+        if r_pol_auto["cod_poliza"] == cod_poliza:
             return r_pol_auto
+    
+    return []
 
 def values_pol_autos(contrato, r_pol_auto):
     return (
@@ -122,9 +124,9 @@ def values_pol_autos(contrato, r_pol_auto):
 
 def get_datos_poliza(cod_poliza):
 
-    for d in polizasList:
-        if d["cod_poliza"] == int(cod_poliza):
-            return values_poliza(d["contrato_pacc"], d)
+    for poliza in polizasList:
+        if poliza["cod_poliza"] == int(cod_poliza):
+            return poliza
     
     return []
 
@@ -133,25 +135,25 @@ def insertar_recibo_bd(r):
     datos_poliza = get_datos_poliza(r["cod_poliza"])
     if datos_poliza == []:
         return
-
+    
     cia_recibo = r["num_recibo"] if r["num_recibo"] is not None else ''
     situacion = 206
-
+    
     sql = """INSERT INTO recibos 
             (poliza,cia_poliza,recibo,cia_recibo,compania,producto,tipo,nif,iban,colaborador,canal,situacion,prima_tarifa,prima_neta,prima_total,
             fecha_emision,fecha_efecto,fecha_vencimiento,sucursal,created_by) 
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
     
     values = (
-        datos_poliza[0],                                        # contrato
+        datos_poliza["contrato_pacc"],                                        # contrato
         r["cod_poliza_cia"],                                    # cia_poliza
         get_nuevo_recibo(),                                     # recibo
         valida_cadena(cia_recibo, 20),                          # cia_recibo
-        datos_poliza[2],            # compania
-        datos_poliza[3],            # producto
-        r["clase_recibo"][0],
-        datos_poliza[6],            # nif
-        datos_poliza[9],           # iban
+        get_cia_pacc(datos_poliza),                  # compania
+        get_ramo_pacc(datos_poliza),                # producto
+        r["clase_recibo"][0],                                   # tipo
+        get_nif(datos_poliza["n_cliente"]),                     # nif
+        get_iban(datos_poliza),                                 # iban
         colaborador,
         canal,
         situacion,
@@ -164,11 +166,12 @@ def insertar_recibo_bd(r):
         sucursal,
         created_by,
     )
-    
+        
     try:
         cur = conn.cursor()
         cur.execute(sql, values)
         conn.commit()
+        contador["recibos"] +=1
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -176,7 +179,7 @@ def insertar_recibo_bd(r):
     return
 
 def insertar_docu_bd(r):
-
+    
     # Solo polizas y clientes
     if r["grupo"] not in [1, 3]:
         return
@@ -186,8 +189,8 @@ def insertar_docu_bd(r):
     fichero = r["fichero"]
 
     # [ Copiar fichero ]
-    path_origen = f'D:/TRABAJO/PACTREBOL/CTM/Documentos/{grupo}/{("/").join(str(r["codigo"]))}/{fichero}'
-    path_destino = f'{os.path.dirname(__file__)}/__pactrebol_documentos/{fecha.replace("-","/")[:8]}'
+    # path_origen = f'D:/TRABAJO/PACTREBOL/CTM/Documentos/{grupo}/{("/").join(str(r["codigo"]))}/{fichero}'
+    # path_destino = f'{os.path.dirname(__file__)}/__pactrebol_documentos/{fecha.replace("-","/")[:8]}'
 
     # Verificar existencia fichero
     # if not os.path.exists(path_origen):
@@ -196,8 +199,8 @@ def insertar_docu_bd(r):
         # return None
 
     # Crear carpetas
-    if not os.path.exists(path_destino):
-        os.makedirs(path_destino, exist_ok=True)
+    # if not os.path.exists(path_destino):
+    #     os.makedirs(path_destino, exist_ok=True)
 
     # Copiar fichero
     # shutil.copyfile(path_origen, path_destino + "/" + fichero)
@@ -209,7 +212,7 @@ def insertar_docu_bd(r):
     elif r["grupo"] == 3:
         datos_poliza = get_datos_poliza(r["cod_regis_tabla"])
         if datos_poliza != []:
-            poliza = datos_poliza[0]
+            poliza = datos_poliza["contrato_pacc"]
         
     if cliente == '' and poliza == '':
         return
@@ -230,6 +233,7 @@ def insertar_docu_bd(r):
         cur = conn.cursor()
         cur.execute(sql, values)
         conn.commit()
+        contador["docs"] +=1
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -267,6 +271,7 @@ def insertar_poliza_bd(r):
                 cur.execute(sql_poliza_autos, values_pol_autos(contrato, r_pol_auto))
 
         conn.commit()
+        contador["polizas"] +=1
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -318,6 +323,7 @@ def insertar_cliente_bd(r):
         if not cur.fetchone()[0]:
             cur.execute(sql_cliente, values_cliente)
             conn.commit()
+            contador["clientes"] +=1
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
@@ -328,12 +334,6 @@ def insertar_cliente_bd(r):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # INIT
 
-sucursal = '2901'
-colaborador = '29010001'
-created_by = 'ebroker'
-tipo_poliza = 1
-canal = 6
-
 # read database configuration
 params = config()
 # connect to the PostgreSQL database
@@ -342,6 +342,13 @@ conn = psycopg2.connect(**params)
 # read setting
 setting = config(section='setting')
 path_files = setting["path_files"]
+
+sucursal = setting["sucursal"]
+colaborador = setting["colaborador"]
+created_by = setting["created_by"]
+tipo_poliza = setting["tipo_poliza"]
+canal = setting["canal"]
+contador = dict(clientes = 0, polizas = 0, recibos = 0, docs = 0)
 
 # borrar datos en ambiente develop
 if setting["borrar_datos_bd"]:
@@ -386,6 +393,10 @@ for r in docusList: insertar_docu_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  FIN
+
+print('\r-----------------------\r')
+for i,v in enumerate(contador): print(' Nº',v.capitalize(), ':', contador[v])
+print('\r-----------------------\r')
 
 # Cerrar conexion
 if conn is not None:
