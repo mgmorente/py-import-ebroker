@@ -1,9 +1,6 @@
-import csv
-import os
 import psycopg2
 from config import config
 from utils import *
-import shutil
 from schwifty import IBAN
 
 
@@ -74,6 +71,10 @@ def get_iban(r):
 
 def values_poliza(contrato, r):
     
+    tipo = tipo_poliza
+    if r['producto'] == '30205' or r['producto'] == '30209':
+        tipo = 3
+
     return (
         contrato,
         valida_cadena(r["cod_poliza_cia"], 24),              # cia poliza
@@ -87,7 +88,7 @@ def values_poliza(contrato, r):
         False,                                              # ase_es_asegurado
         valida_cadena(r['matricula'], 15),                   # matricula
         r["forma_pago"][0:3],                               # forma pago
-        tipo_poliza,                                        # tipo poliza
+        tipo,                                        # tipo poliza
         r['riesgo'],                                        # objeto
         get_comentario(r),                                  # comentario
         'now()',                                            # fecha alta
@@ -137,7 +138,6 @@ def insertar_recibo_bd(r):
         return
     
     cia_recibo = r["num_recibo"] if r["num_recibo"] is not None else ''
-    situacion = 206
     
     sql = """INSERT INTO recibos 
             (poliza,cia_poliza,recibo,cia_recibo,compania,producto,tipo,nif,iban,colaborador,canal,situacion,prima_tarifa,prima_neta,prima_total,
@@ -156,7 +156,7 @@ def insertar_recibo_bd(r):
         get_iban(datos_poliza),                                 # iban
         colaborador,
         canal,
-        situacion,
+        get_situacion_recibo(r["estado"]),
         r["prima_neta"],
         r["prima_neta"],
         r["prima_total"],

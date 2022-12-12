@@ -104,6 +104,15 @@ def get_clase_auto(codigo):
     else:
         return list[codigo-1][1]
 
+def get_situacion_recibo(estado):
+    if estado is None:
+        return 0
+    
+    if  estado == "COBRADO/CIA": return 206
+    elif estado == "PENDIENTE": return 106
+    elif estado == "ANULADO": return 306
+    elif estado == "PENDIENTE/DVTO. EN CIA": return 216
+
 def get_carpeta_grupo(codigo):
     if codigo == 1: return "CLIENTES".lower()
     elif codigo == 6: return "ASEGURADORAS".lower()
@@ -248,7 +257,7 @@ def get_ramo_pacc(registro):
     elif codigo == '20102': return 000 # INC.RIES.INDUS.
     elif codigo == '21705': return 300 # MASCOTAS
     elif codigo == '20804': return 204 # OFICINAS
-    elif codigo == '21702': return 000 # OTROS RAMOS
+    elif codigo == '21702': return 212 # OTROS RAMOS
     elif codigo == '20201': return 105 # PER.BENEFICIOS
     elif codigo == '20202': return 104 # SUS.ESPECTACUL.
     elif codigo == '21101': return 222 # P.J.AUTOS
@@ -288,11 +297,11 @@ def get_ramo_pacc(registro):
     elif codigo == '20311': return 503 # CASCOS P&I
     elif codigo == '30108': return 422 # UNILINK
     elif codigo == '30211': return 423 # UNILINK
-    elif codigo == '30101': return 000 # IND.DIFE.AHORRO
-    elif codigo == '30102': return 000 # IND.RIESGO
-    elif codigo == '30103': return 000 # IND.MIXTOS
-    elif codigo == '30104': return 000 # COL.DIFE.AHORRO
-    elif codigo == '30105': return 000 # COL.RIESGO
+    elif codigo == '30101': return 415 # IND.DIFE.AHORRO
+    elif codigo == '30102': return 400 # IND.RIESGO
+    elif codigo == '30103': return 400 # IND.MIXTOS
+    elif codigo == '30104': return 702 # COL.DIFE.AHORRO
+    elif codigo == '30105': return 702 # COL.RIESGO
     elif codigo == '30106': return 000 # COL.MIXTOS
     elif codigo == '30107': return 428 # FOND.PENSIONES
     elif codigo == '30109': return 406 # PPA
@@ -308,12 +317,12 @@ def get_ramo_pacc(registro):
     elif codigo == '30201': return 000 # COL.AHORRO
     elif codigo == '30202': return 000 # COL.RIESGO
     elif codigo == '30203': return 000 # COL.MIXTOS
-    elif codigo == '30204': return 000 # IND.AHORRO
-    elif codigo == '30205': return 000 # IND.RIESGO
+    elif codigo == '30204': return 417 # IND.AHORRO
+    elif codigo == '30205': return 400 # IND.RIESGO
     elif codigo == '30206': return 000 # IND.MIXTOS
     elif codigo == '30207': return 425 # RENTA VITALICIA
     elif codigo == '30208': return 432 # FOND.PENSIONES
-    elif codigo == '30209': return 000 # P.FINANCIEROS
+    elif codigo == '30209': return 400 # P.FINANCIEROS
     elif codigo == '30210': return 425 # RENTAS TEMPORALES
     elif codigo == '30212': return 406 # PPA
     elif codigo == '30213': return 432 # FOND.PENSIONES RFCP
@@ -325,6 +334,7 @@ def get_ramo_pacc(registro):
     elif codigo == '30219': return 433 # SIALP
     elif codigo == '30220': return 415 # PIAS
     elif codigo == '30221': return 000 # EPSV
+    elif codigo == '05001': return 305
     else: return 000
 
 def importFile(name):
