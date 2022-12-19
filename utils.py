@@ -46,6 +46,17 @@ def valida_telefono(numero, campo_movil = False):
     else:
         return '' 
 
+def valida_sexo(valor):
+    if valor is None:
+        return ''
+    
+    if valor == 'M':
+        return 'HOM'
+    elif valor == 'F':
+        return 'MUJ'
+    else:
+        return ''
+
 def valida_persona(valor):
     if valor is None:
         return ''

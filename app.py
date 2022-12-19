@@ -1,7 +1,7 @@
 import psycopg2
 from config import config
 from utils import *
-from schwifty import IBAN
+from lib_iban import *
 
 
 def borrar_datos():
@@ -61,12 +61,12 @@ def get_comentario(r):
     return comentario
 
 def get_iban(r):
-    if r["entidad_bancaria"] != '' or r["entidad_bancaria"] is None:
+    if r["entidad_bancaria"] == '' or r["entidad_bancaria"] is None:
         return ''
     else:
-        banco = r["entidad_bancaria"] + r["ofi_banco_poliza"]
-        cuenta = r["co_banco_poliza"] + r["num_cuenta_poliza"]
-        iban = IBAN.generate('ES', bank_code=banco, account_code=cuenta)
+        banco = r["entidad_bancaria"]  
+        cuenta = r["ofi_banco_poliza"] +r["co_banco_poliza"] + r["num_cuenta_poliza"]
+        iban = calcular(banco + cuenta)
         return iban
 
 def values_poliza(contrato, r):
@@ -280,8 +280,8 @@ def insertar_poliza_bd(r):
 
 def insertar_cliente_bd(r):
     
-    sql_cliente = """INSERT INTO clientes(nif,nombre,cli_nombre,cli_apellido1,cli_apellido2,domicilio,cpostal,poblacion,provincia,tel_privado,movil,fecha_nacimiento,fecha_carnet,persona,ecivil,nombre2,domicilio2,poblacion2,cpostal2,provincia2,fecha_alta,sucursal,colaborador,created_at,created_by,passweb)
-        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    sql_cliente = """INSERT INTO clientes(nif,nombre,cli_nombre,cli_apellido1,cli_apellido2,domicilio,cpostal,poblacion,provincia,tel_privado,movil,fecha_nacimiento,fecha_carnet,persona,ecivil,sexo,nombre2,domicilio2,poblacion2,cpostal2,provincia2,fecha_alta,sucursal,colaborador,created_at,created_by,passweb)
+        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT ON CONSTRAINT clientes_pk 
         DO NOTHING"""
 
@@ -303,6 +303,7 @@ def insertar_cliente_bd(r):
         valida_fecha(r["fecha_carnet"]),
         valida_persona(r["cliente_fis_jur"]),  # persona fisica juridica
         valida_ecivil(r["cod_escivil"]),  # estado civil
+        valida_sexo(r["cod_sexo"]),
         valida_cadena(r["nombre"], 45),
         valida_cadena(r["dir_cliente"], 45),
         valida_cadena(r["poblacion_cliente"], 30),

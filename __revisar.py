@@ -12,12 +12,26 @@ path_files = setting["path_files"]
 recibos_estado = []
 polizas_ramos = []
 polizas_cias = []
+clientes_sexo = []
+
+#########################################################
+
+prCyan('>> Importar Clientes')
+clientesList = importFile('clientes')
+
+for r in clientesList: 
+    clientes_sexo.append(r["cod_sexo"])
+    if (r["cod_sexo"] == 'S'):
+        print(r["cif_nif_cliente"], r["nombre_cliente"])
+    
+# if list(dict.fromkeys(clientes_sexo)) != []: 
+#     print('Sexo: ',list(dict.fromkeys(clientes_sexo)))
 
 
 #########################################################
 
-prCyan('>> Importar Polizas')
-polizasList = importFile('polizas')
+# prCyan('>> Importar Polizas')
+# polizasList = importFile('polizas')
 
 # with open(f'{os.path.dirname(__file__)}/exportacion/polizas-ramo-vacio.csv', 'w+') as f:
 #     for r in polizasList: 
@@ -27,17 +41,17 @@ polizasList = importFile('polizas')
 
 #########################################################
 
-for r in polizasList: 
-    if int(get_ramo_pacc(r["producto"])) == 0: 
-        polizas_ramos.append(r["producto"])
-    if int(getCodCia(r["cia_poliza"])) == 0: 
-        polizas_cias.append(r["cia_poliza"])
+# for r in polizasList: 
+#     if int(get_ramo_pacc(r["producto"])) == 0: 
+#         polizas_ramos.append(r["producto"])
+#     if int(getCodCia(r["cia_poliza"])) == 0: 
+#         polizas_cias.append(r["cia_poliza"])
     
-if list(dict.fromkeys(polizas_ramos)) != []: 
-    print('Ramos sin equivalencia: ',list(dict.fromkeys(polizas_ramos)))
+# if list(dict.fromkeys(polizas_ramos)) != []: 
+#     print('Ramos sin equivalencia: ',list(dict.fromkeys(polizas_ramos)))
 
-if list(dict.fromkeys(polizas_cias)) != []: 
-    print('Cias sin equivalencia: ',list(dict.fromkeys(polizas_cias)))
+# if list(dict.fromkeys(polizas_cias)) != []: 
+#     print('Cias sin equivalencia: ',list(dict.fromkeys(polizas_cias)))
 
 
 #########################################################
