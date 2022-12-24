@@ -11,6 +11,7 @@ def borrar_datos():
     cur.execute(f"DELETE FROM polizas_autos WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM documentos WHERE created_by = '{created_by}'")
     cur.execute(f"DELETE FROM recibos WHERE created_by = '{created_by}'")
+    cur.execute(f"DELETE FROM polizas_salud_asegurados WHERE created_by = '{created_by}'")
     conn.commit()
     cur.close()
 
@@ -109,6 +110,15 @@ def get_datos_polizas_autos(cod_poliza):
     for r_pol_auto in polizasAutosList:
         if r_pol_auto["cod_poliza"] == cod_poliza:
             return r_pol_auto
+    
+    return []
+
+def get_datos_cliente(codigo):
+    if codigo is None or codigo == '': return []
+    
+    for cliente in clientesList:
+        if cliente["cod_cliente"] == codigo:
+            return cliente
     
     return []
 
@@ -331,6 +341,42 @@ def insertar_cliente_bd(r):
 
     return
 
+def insertar_asegurado_bd(r):
+    
+    # "r" lista asegurados > polizas
+
+    row_asegurado = get_datos_cliente(r["cod_cliente"])
+    if row_asegurado == []: return   
+    
+    row_poliza = get_datos_poliza(r["cod_poliza"])
+    if row_poliza == []: return     
+    
+    nif = valida_nif(row_asegurado["cif_nif_cliente"], row_asegurado["cod_cliente"])
+
+    sql = """INSERT INTO polizas_salud_asegurados (poliza,nombre,nif,fecha_nacimiento,fecha_alta,created_at,created_by)
+        VALUES(%s,%s,%s,%s,%s,%s,%s)"""
+    
+    values = (
+        row_poliza["contrato_pacc"],                            # poliza
+        valida_cadena(row_asegurado["nombre_cliente"], 70),     # nombre
+        nif,                                                    # nif
+        valida_fecha(row_asegurado["fecha_naci_cliente"]),      # fecha nacimiento
+        valida_fecha(r["fecha_alta"]),                          # fecha alta
+        'now()',                                                # created_at
+        created_by,                                             # created_by
+    )
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, values)
+        conn.commit()
+        contador["asegurados"] +=1
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+
+    return
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # INIT
@@ -349,7 +395,7 @@ colaborador = setting["colaborador"]
 created_by = setting["created_by"]
 tipo_poliza = setting["tipo_poliza"]
 canal = setting["canal"]
-contador = dict(clientes = 0, polizas = 0, recibos = 0, docs = 0)
+contador = dict(clientes = 0, polizas = 0, recibos = 0, docs = 0, asegurados = 0)
 
 # borrar datos en ambiente develop
 if setting["borrar_datos_bd"]:
@@ -358,38 +404,50 @@ if setting["borrar_datos_bd"]:
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  VARIOS
 
-prCyan('>> Importar tablas')
-polizasAutosList = importFile('polizas_autos')
+prCyan('>> Importar ficheros')
+
+clientesTipoList = importFile('clientes_tipo')
 clasesAutosList = importFile('clases_autos')
+polizasAutosList = importFile('polizas_autos')
 polizasGarantiasList = importFile('pol_garantias')
+polizasConductoresList = importFile('pol_conductores')
+
+clientesList = importFile('clientes')
+polizasList = importFile('polizas')
+recibosList = importFile('recibos')
+docusList = importFile('docu')
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  CLIENTES
 
 prCyan('>> Importar clientes')
-clientesList = importFile('clientes')
-for r in clientesList: insertar_cliente_bd(r)
+for r in clientesList: 
+    if r["codigo_relacion"] == 'C': insertar_cliente_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  POLIZAS
 
 prCyan('>> Importar Polizas')
-polizasList = importFile('polizas')
 for i,r in enumerate(polizasList): 
     polizasList[i]["contrato_pacc"] = insertar_poliza_bd(r)
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#  ASEGURADOS
+
+prCyan('>> Importar Asegurados')
+for r in clientesTipoList:
+    if  r["codigo_relacion"] == 'A': insertar_asegurado_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  RECIBOS
 
 prCyan('>> Importar Recibos')
-recibosList = importFile('recibos')
 for r in recibosList: insertar_recibo_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  DOCUMENTOS
 
 prCyan('>> Importar Docs')
-docusList = importFile('docu')
 for r in docusList: insertar_docu_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
