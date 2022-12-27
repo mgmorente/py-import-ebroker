@@ -17,6 +17,50 @@ def borrar_datos():
 
     prYellow('>> Borrado completado')
 
+def actualizar_datos():
+    cur = conn.cursor()
+
+    # ALLIANZ 13
+    cur.execute(f"""UPDATE polizas SET 
+            cia_poliza = replace(cia_poliza,'-','/') 
+        WHERE 
+            compania = 13 AND 
+            cia_poliza ILIKE '%-%' AND 
+            created_by = '{created_by}'""")
+
+    # ARAG 33
+    # Dos primeros dígitos seguidos de – seguido de número de póliza: 55-0768797
+    cur.execute(f"""UPDATE polizas SET 
+            cia_poliza = substring(cia_poliza,0,3)||'-'||substring(cia_poliza,3) 
+        WHERE 
+            compania = 33 AND 
+            length(cia_poliza) = 9 AND 
+            created_by = '{created_by}'""")
+
+    # FIATC 49
+    # los números de póliza deben ser: (Ramo + Nº Póliza) todo junto sin espacios ni guiones (9 dígitos en total). 
+    # El ramo son 2 dígitos + 7 dígitos, si el Nº de Póliza no los tiene, añadir ceros tras el ramo hasta completar: 660034567
+    cur.execute(f"""UPDATE polizas SET 
+            cia_poliza = substring(cia_poliza,0,3) || LPAD(substring(cia_poliza,3),7,'0')
+        WHERE 
+            compania = 49 AND 
+            length(cia_poliza) < 9 AND 
+            created_by = '{created_by}'""")
+
+    conn.commit()
+    cur.close()
+
+    prYellow('>> Actualizar campos')
+
+def get_nif_by_ordinal(ordinal):
+    
+    for d in clientesList:
+        if d["ordinal"] == ordinal:
+            if d["cif_nif_cliente"] is not None:
+                return d["cif_nif_cliente"]
+    
+    return ''
+
 def get_nif(cod_cliente):
 
     for d in clientesList:
@@ -218,7 +262,7 @@ def insertar_docu_bd(r):
     # [ Insertar registro ]
     cliente = poliza = ''
     if r["grupo"] == 1:
-        cliente = get_nif(r["cod_regis_tabla"])
+        cliente = get_nif_by_ordinal(r["ordinal"])
     elif r["grupo"] == 3:
         datos_poliza = get_datos_poliza(r["cod_regis_tabla"])
         if datos_poliza != []:
@@ -452,6 +496,8 @@ for r in docusList: insertar_docu_bd(r)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #  FIN
+
+actualizar_datos()
 
 print('\r-----------------------\r')
 for i,v in enumerate(contador): print(' Nº',v.capitalize(), ':', contador[v])
