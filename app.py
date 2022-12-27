@@ -52,12 +52,12 @@ def actualizar_datos():
 
     prYellow('>> Actualizar campos')
 
-def get_nif_by_ordinal(ordinal):
-    
-    for d in clientesList:
-        if d["ordinal"] == ordinal:
-            if d["cif_nif_cliente"] is not None:
-                return d["cif_nif_cliente"]
+def get_nif_docs(codigo):
+    # •	eb_cliente.txt (cod_cliente si es candidato / ordinal si es cliente / ambos si es un cliente 
+    # que previamente fue candidato y tenía documentación como candidato)
+    for cliente in clientesList:
+        if cliente["ordinal"] == codigo and cliente["codigo_relacion"] == "C" and cliente["cif_nif_cliente"] is not None:
+            return cliente["cif_nif_cliente"]
     
     return ''
 
@@ -262,7 +262,7 @@ def insertar_docu_bd(r):
     # [ Insertar registro ]
     cliente = poliza = ''
     if r["grupo"] == 1:
-        cliente = get_nif_by_ordinal(r["ordinal"])
+        cliente = get_nif_docs(r["cod_regis_tabla"])
     elif r["grupo"] == 3:
         datos_poliza = get_datos_poliza(r["cod_regis_tabla"])
         if datos_poliza != []:
@@ -509,3 +509,11 @@ if conn is not None:
 
 # Mensaje fin proceso
 prGreen('Success!')
+
+
+
+# eb_docu.txt (columna cod_regis_tabla) se relaciona con:
+# •	eb_cliente.txt (cod_cliente si es candidato / ordinal si es cliente / ambos si es un cliente que previamente fue candidato y tenía documentación como candidato)
+# •	eb_recibo.txt (cod_recibo)
+# •	eb_poliza.txt (cod_poliza)
+# •	etc.
