@@ -40,9 +40,9 @@ def valida_telefono(numero, campo_movil = False):
     
     es_numero_movil = True if int(numero[0:1]) in [6,7] else False
     if es_numero_movil and campo_movil:
-        return numero
+        return int(numero[0:9])
     elif not es_numero_movil and not campo_movil:
-        return numero
+        return int(numero[0:9])
     else:
         return '' 
 
@@ -200,6 +200,7 @@ def get_cia_pacc(registro):
     elif codigo == 10: return 27; # "MAPFRE FAMILIAR, COMPAÑIA DE SEGUROS Y REASEGUROS, S.A." , "cia
     elif codigo == 6 : return 49; #"FIATC, MUTUA DE SEGUROS Y REASEGUROS A PRIMA FIJA" , "cia_abrevi
     elif codigo == 3 : return 46; #"ASEFA, S.A. COMPAÑÍA ESPAÑOLA DE SEGUROS Y REASEGUROS" , "cia_ab
+    else: return 0
 
 # Fn equivalencia ramos pacc
 def get_ramo_pacc(registro):
